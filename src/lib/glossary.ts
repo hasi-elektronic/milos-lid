@@ -1,3 +1,5 @@
+import meaningsJson from '../data/meanings.json'
+
 export type GlossEntry = {
   term: string
   meaning: string
@@ -142,8 +144,12 @@ export const GLOSSARY: GlossEntry[] = [
   { term: 'Direktive', meaning: 'Anweisung, oft aus der EU; nicht dasselbe wie ein deutsches Gesetz', forms: ['Direktive'] },
 ]
 
+const MEANINGS = meaningsJson as Record<string, string>
+
 export function defineAnswer(text: string, question = ''): string {
   const raw = text.trim().replace(/\.$/, '')
+  const mapped = MEANINGS[text.trim()] ?? MEANINGS[raw]
+  if (mapped) return mapped
   if (!raw) return ''
   if (/^Bild\s+\d$/i.test(raw)) return 'siehe das Bild zur Frage'
   if (/^\d+$/.test(raw)) {

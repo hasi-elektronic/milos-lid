@@ -25,9 +25,9 @@ describe('glossary', () => {
   })
 
   it('defines Fraktion like a dictionary', () => {
-    expect(defineAnswer('Fraktion')).toMatch(/Abgeordneten einer Partei/i)
+    expect(defineAnswer('Fraktion')).toMatch(/Abgeordnete einer Partei/i)
     expect(defineAnswer('Verband')).toMatch(/Vereinen|Interessen/i)
-    expect(defineAnswer('Opposition')).toMatch(/nicht in der Regierung/i)
+    expect(defineAnswer('Opposition')).toMatch(/nicht mitregieren|nicht in der Regierung/i)
   })
 })
 
@@ -42,6 +42,18 @@ describe('explain', () => {
     expect(fraktion?.correct).toBe(true)
     expect(fraktion?.meaning).toMatch(/Parlament/i)
     expect(detail.entries.every((e) => !e.meaning.includes('passt nicht'))).toBe(true)
+  })
+
+  it('covers every catalog answer without echoing the option', () => {
+    for (const q of catalog.questions) {
+      const detail = explainQuestion(q as Question)
+      for (const entry of detail.entries) {
+        expect(entry.meaning.length).toBeGreaterThan(2)
+        expect(entry.meaning.replace(/[. ]/g, '').toLowerCase()).not.toBe(
+          entry.text.replace(/[. ]/g, '').toLowerCase(),
+        )
+      }
+    }
   })
 
   it('defines BW Landtag years as years, not as "wrong"', () => {
