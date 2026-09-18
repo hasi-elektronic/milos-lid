@@ -12,7 +12,8 @@ import type { Catalog, Progress, Question } from './types'
 const catalog = catalogJson as Catalog
 const LETTERS = ['A', 'B', 'C', 'D'] as const
 
-type View = 'home' | 'learn' | 'exam' | 'result' | 'legal'
+type View = 'home' | 'briefing' | 'exam' | 'catalog' | 'result' | 'legal'
+type ExamKind = 'official' | 'learn'
 type Filter = 'all' | 'bw' | 'general' | 'wrong' | string
 
 function filterQuestions(questions: Question[], filter: Filter, progress: Progress) {
@@ -32,19 +33,20 @@ export default function App() {
     typeof localStorage === 'undefined' ? { seen: {}, exams: [] } : loadProgress(),
   )
   const [filter, setFilter] = useState<Filter>('all')
-  const [learnIndex, setLearnIndex] = useState(0)
+  const [catalogIndex, setCatalogIndex] = useState(0)
   const [picked, setPicked] = useState<number | null>(null)
+  const [examKind, setExamKind] = useState<ExamKind>('official')
   const [exam, setExam] = useState<Question[]>([])
   const [examIndex, setExamIndex] = useState(0)
   const [examAnswers, setExamAnswers] = useState<Record<string, number>>({})
   const [secondsLeft, setSecondsLeft] = useState(catalog.examMinutes * 60)
   const [result, setResult] = useState<ReturnType<typeof scoreExam> | null>(null)
 
-  const learnList = useMemo(
+  const catalogList = useMemo(
     () => filterQuestions(catalog.questions, filter, progress),
     [filter, progress],
   )
-  const currentLearn = learnList[learnIndex]
+  const currentCatalog = catalogList[catalogIndex]
   const currentExam = exam[examIndex]
   const topics = useMemo(() => {
     const set = new Set(catalog.questions.map((q) => q.topic))
@@ -54,9 +56,11 @@ export default function App() {
   const knownCount = Object.values(progress.seen).filter((s) => s.correct).length
   const errorCount = wrongIds(progress).length
   const lastExam = progress.exams[0]
+  const answeredCount = Object.keys(examAnswers).length
+  const isOfficial = examKind === 'official' && view === 'exam'
 
   useEffect(() => {
-    if (view !== 'exam' || result) return
+    if (!isOfficial || result) return
     const timer = window.setInterval(() => {
       setSecondsLeft((value) => {
         if (value <= 1) {
@@ -67,48 +71,53 @@ export default function App() {
       })
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [view, result])
+  }, [isOfficial, result])
 
   useEffect(() => {
-    if (view === 'exam' && secondsLeft === 0 && !result && exam.length > 0) {
-      const scored = scoreExam(exam, examAnswers, catalog.passScore)
-      setResult(scored)
-      setProgress(recordExam(progress, scored))
-      setView('result')
+    if (isOfficial && secondsLeft === 0 && !result && exam.length > 0) {
+      finishExam(examAnswers)
     }
-  }, [secondsLeft, view, result, exam, examAnswers, progress])
+  }, [secondsLeft, isOfficial, result, exam.length])
 
-  function startLearn(nextFilter: Filter) {
+  function openCatalog(nextFilter: Filter) {
     setFilter(nextFilter)
-    setLearnIndex(0)
+    setCatalogIndex(0)
     setPicked(null)
-    setView('learn')
+    setView('catalog')
   }
 
-  function startExam() {
-    const next = pickExam(catalog.questions)
-    setExam(next)
+  function prepareExam(kind: ExamKind) {
+    setExamKind(kind)
+    setExam(pickExam(catalog.questions))
     setExamIndex(0)
     setExamAnswers({})
+    setPicked(null)
     setSecondsLeft(catalog.examMinutes * 60)
     setResult(null)
-    setView('exam')
+    if (kind === 'official') setView('briefing')
+    else setView('exam')
   }
 
   function chooseLearn(index: number) {
-    if (!currentLearn || picked !== null) return
+    if (!currentCatalog || picked !== null) return
     setPicked(index)
-    setProgress(markAnswer(progress, currentLearn.id, index === currentLearn.correct))
+    setProgress(markAnswer(progress, currentCatalog.id, index === currentCatalog.correct))
   }
 
-  function nextLearn() {
-    setPicked(null)
-    setLearnIndex((i) => Math.min(i + 1, Math.max(learnList.length - 1, 0)))
+  function chooseExam(index: number) {
+    if (!currentExam) return
+    if (examKind === 'learn' && picked !== null) return
+    setExamAnswers((current) => ({ ...current, [currentExam.id]: index }))
+    if (examKind === 'learn') {
+      setPicked(index)
+      setProgress(markAnswer(progress, currentExam.id, index === currentExam.correct))
+    }
   }
 
-  function prevLearn() {
-    setPicked(null)
-    setLearnIndex((i) => Math.max(i - 1, 0))
+  function goExam(next: number) {
+    setExamIndex(next)
+    const q = exam[next]
+    setPicked(examKind === 'learn' && q ? (examAnswers[q.id] ?? null) : null)
   }
 
   function finishExam(answers: Record<string, number>) {
@@ -119,239 +128,319 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="top">
-        <button type="button" className="brand" onClick={() => setView('home')}>
-          LiD für Milos
-        </button>
-        {view === 'exam' && !result ? (
-          <span className={secondsLeft < 300 ? 'timer warn' : 'timer'}>
-            {formatTime(secondsLeft)}
-          </span>
-        ) : (
-          <span className="badge">Baden-Württemberg</span>
-        )}
-      </header>
+    <div className="shell">
+      <div className="flag" aria-hidden="true" />
+      <div className="app">
+        <header className="top">
+          <button type="button" className="brand" onClick={() => setView('home')}>
+            <span className="mark" aria-hidden="true" />
+            <span>
+              <strong>LiD für Milos</strong>
+              <small>Leben in Deutschland</small>
+            </span>
+          </button>
+          {isOfficial ? (
+            <span className={secondsLeft < 300 ? 'timer warn' : 'timer'} aria-live="polite">
+              {formatTime(secondsLeft)}
+            </span>
+          ) : (
+            <span className="badge">Baden-Württemberg</span>
+          )}
+        </header>
 
-      {view === 'home' && (
-        <main className="stack">
-          <section className="hero card">
-            <p className="kicker">Übungstest · B1</p>
-            <h1>Leben in Deutschland</h1>
-            <p className="lead">
-              300 allgemeine Fragen plus 10 Fragen zu Baden-Württemberg.
-              Prüfung: 33 Fragen, 60 Minuten, 17 Richtige zum Bestehen.
-            </p>
-            <div className="actions">
-              <button type="button" className="btn primary" onClick={() => startLearn('all')}>
-                Üben
+        {view === 'home' && (
+          <main className="stack">
+            <section className="hero">
+              <p className="kicker">BAMF-Katalog · Stand 07.05.2025</p>
+              <h1>Zwei Wege zur Prüfung.</h1>
+              <p className="lead">
+                Wie im Amt: 33 Fragen, 60 Minuten, 17 Richtige. Oder lernen:
+                nach jeder Antwort kommt die Lösung mit kurzer Erklärung.
+              </p>
+            </section>
+
+            <div className="modes">
+              <button type="button" className="mode official" onClick={() => prepareExam('official')}>
+                <IconClock />
+                <h2>Prüfung wie im Amt</h2>
+                <p>33 Fragen · 60 Minuten · keine Hilfe bis zum Schluss</p>
+                <span className="mode-cta">Prüfung starten</span>
               </button>
-              <button type="button" className="btn" onClick={startExam}>
-                Prüfung starten
+              <button type="button" className="mode learn" onClick={() => prepareExam('learn')}>
+                <IconBook />
+                <h2>Lernen mit Erklärung</h2>
+                <p>Auch 33 Fragen — nach jeder Antwort siehst du, warum</p>
+                <span className="mode-cta">Jetzt lernen</span>
               </button>
             </div>
-          </section>
 
-          <section className="stats">
-            <article>
-              <strong>{knownCount}</strong>
-              <span>richtig gelernt</span>
-            </article>
-            <article>
-              <strong>{seenCount}/310</strong>
-              <span>gesehen</span>
-            </article>
-            <article>
-              <strong>{errorCount}</strong>
-              <span>Fehler</span>
-            </article>
-          </section>
+            <section className="stats">
+              <article>
+                <strong>{knownCount}</strong>
+                <span>richtig gelernt</span>
+              </article>
+              <article>
+                <strong>{seenCount}/310</strong>
+                <span>gesehen</span>
+              </article>
+              <article>
+                <strong>{errorCount}</strong>
+                <span>Fehler offen</span>
+              </article>
+            </section>
 
-          {lastExam && (
-            <p className="last">
-              Letzte Prüfung: {lastExam.correct}/{lastExam.total}{' '}
-              {lastExam.passed ? '— bestanden' : '— nicht bestanden'}
-            </p>
-          )}
-
-          <div className="actions wrap">
-            <button type="button" className="btn ghost" onClick={() => startLearn('bw')}>
-              Nur BW (10)
-            </button>
-            {errorCount > 0 && (
-              <button type="button" className="btn ghost" onClick={() => startLearn('wrong')}>
-                Fehler wiederholen
-              </button>
-            )}
-          </div>
-        </main>
-      )}
-
-      {view === 'learn' && (
-        <main className="stack">
-          <label className="filter">
-            Thema
-            <select
-              value={filter}
-              onChange={(e) => {
-                setFilter(e.target.value)
-                setLearnIndex(0)
-                setPicked(null)
-              }}
-            >
-              <option value="all">Alle Fragen (310)</option>
-              <option value="bw">Baden-Württemberg (10)</option>
-              <option value="general">Nur allgemein (300)</option>
-              <option value="wrong">Nur Fehler</option>
-              {topics.map((topic) => (
-                <option key={topic} value={topic}>
-                  {topic}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {learnList.length === 0 || !currentLearn ? (
-            <p className="card">Keine Fragen in diesem Filter.</p>
-          ) : (
-            <>
-              <p className="meta">
-                {learnIndex + 1} / {learnList.length} · {currentLearn.topic}
+            {lastExam && (
+              <p className="last">
+                Letzte Prüfung: {lastExam.correct}/{lastExam.total}{' '}
+                {lastExam.passed ? 'bestanden' : 'nicht bestanden'}
               </p>
-              <QuestionBlock
-                question={currentLearn}
-                picked={picked}
-                reveal
-                onPick={chooseLearn}
-              />
-              <div className="actions">
-                <button type="button" className="btn ghost" onClick={prevLearn} disabled={learnIndex === 0}>
+            )}
+
+            <div className="secondary">
+              <button type="button" className="chip" onClick={() => openCatalog('all')}>
+                Alle 310 Fragen
+              </button>
+              <button type="button" className="chip" onClick={() => openCatalog('bw')}>
+                Nur BW
+              </button>
+              {errorCount > 0 && (
+                <button type="button" className="chip" onClick={() => openCatalog('wrong')}>
+                  Fehler wiederholen
+                </button>
+              )}
+            </div>
+          </main>
+        )}
+
+        {view === 'briefing' && (
+          <main className="stack">
+            <section className="card briefing">
+              <p className="kicker">Vor der Prüfung</p>
+              <h1>Wie der echte Test</h1>
+              <ul className="rules">
+                <li>33 Fragen: 30 allgemein, 3 zu Baden-Württemberg</li>
+                <li>60 Minuten Zeit</li>
+                <li>17 richtige Antworten zum Bestehen</li>
+                <li>Keine Lösung während der Prüfung</li>
+                <li>Du kannst zwischen den Fragen hin- und herspringen</li>
+              </ul>
+              <div className="bar">
+                <button type="button" className="btn" onClick={() => setView('home')}>
                   Zurück
                 </button>
+                <button type="button" className="btn primary" onClick={() => setView('exam')}>
+                  Prüfung beginnen
+                </button>
+              </div>
+            </section>
+          </main>
+        )}
+
+        {view === 'exam' && currentExam && (
+          <main className="stack exam-view">
+            <div className="hud">
+              <p className="meta">
+                Frage {examIndex + 1} von {exam.length}
+                {currentExam.pool === 'bw' ? ' · Land' : ''}
+                {examKind === 'learn' ? ' · mit Erklärung' : ''}
+              </p>
+              <div className="track" aria-hidden="true">
+                <i style={{ width: `${(answeredCount / exam.length) * 100}%` }} />
+              </div>
+              <p className="meta right">{answeredCount} beantwortet</p>
+            </div>
+
+            <QuestionBlock
+              question={currentExam}
+              picked={examKind === 'learn' ? picked : (examAnswers[currentExam.id] ?? null)}
+              reveal={examKind === 'learn'}
+              onPick={chooseExam}
+            />
+
+            <div className="navmap" aria-label="Fragenübersicht">
+              {exam.map((q, i) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  className={`dot${i === examIndex ? ' current' : ''}${examAnswers[q.id] !== undefined ? ' done' : ''}`}
+                  onClick={() => goExam(i)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+
+            <div className="bar">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => goExam(Math.max(0, examIndex - 1))}
+                disabled={examIndex === 0}
+              >
+                Zurück
+              </button>
+              {examIndex < exam.length - 1 ? (
                 <button
                   type="button"
                   className="btn primary"
-                  onClick={nextLearn}
-                  disabled={learnIndex >= learnList.length - 1}
+                  onClick={() => goExam(examIndex + 1)}
+                  disabled={examKind === 'learn' && picked === null}
                 >
-                  Weiter
+                  Nächste Frage
                 </button>
-              </div>
-            </>
-          )}
-        </main>
-      )}
+              ) : (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => {
+                    const open = exam.length - Object.keys(examAnswers).length
+                    if (
+                      examKind === 'official' &&
+                      open > 0 &&
+                      !window.confirm(`${open} Fragen ohne Antwort. Trotzdem abgeben?`)
+                    ) {
+                      return
+                    }
+                    finishExam(examAnswers)
+                  }}
+                >
+                  {examKind === 'official' ? 'Abgeben' : 'Auswertung'}
+                </button>
+              )}
+            </div>
+          </main>
+        )}
 
-      {view === 'exam' && currentExam && (
-        <main className="stack">
-          <p className="meta">
-            Frage {examIndex + 1} / {exam.length}
-            {currentExam.pool === 'bw' ? ' · Baden-Württemberg' : ''}
-          </p>
-          <QuestionBlock
-            question={currentExam}
-            picked={examAnswers[currentExam.id] ?? null}
-            reveal={false}
-            onPick={(index) =>
-              setExamAnswers((current) => ({ ...current, [currentExam.id]: index }))
-            }
-          />
-          <div className="actions">
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => setExamIndex((i) => Math.max(0, i - 1))}
-              disabled={examIndex === 0}
-            >
-              Zurück
-            </button>
-            {examIndex < exam.length - 1 ? (
-              <button type="button" className="btn primary" onClick={() => setExamIndex((i) => i + 1)}>
-                Weiter
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn primary"
-                onClick={() => {
-                  const open = exam.length - Object.keys(examAnswers).length
-                  if (open > 0 && !window.confirm(`${open} Fragen ohne Antwort. Trotzdem abgeben?`)) {
-                    return
-                  }
-                  finishExam(examAnswers)
+        {view === 'catalog' && (
+          <main className="stack">
+            <label className="filter">
+              Thema
+              <select
+                value={filter}
+                onChange={(e) => {
+                  setFilter(e.target.value)
+                  setCatalogIndex(0)
+                  setPicked(null)
                 }}
               >
-                Abgeben
-              </button>
+                <option value="all">Alle Fragen (310)</option>
+                <option value="bw">Baden-Württemberg (10)</option>
+                <option value="general">Nur allgemein (300)</option>
+                <option value="wrong">Nur Fehler</option>
+                {topics.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topic}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {catalogList.length === 0 || !currentCatalog ? (
+              <p className="card">Keine Fragen in diesem Filter.</p>
+            ) : (
+              <>
+                <p className="meta">
+                  {catalogIndex + 1} / {catalogList.length} · {currentCatalog.topic}
+                </p>
+                <QuestionBlock
+                  question={currentCatalog}
+                  picked={picked}
+                  reveal
+                  onPick={chooseLearn}
+                />
+                <div className="bar">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      setPicked(null)
+                      setCatalogIndex((i) => Math.max(i - 1, 0))
+                    }}
+                    disabled={catalogIndex === 0}
+                  >
+                    Zurück
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={() => {
+                      setPicked(null)
+                      setCatalogIndex((i) => Math.min(i + 1, catalogList.length - 1))
+                    }}
+                    disabled={catalogIndex >= catalogList.length - 1}
+                  >
+                    Weiter
+                  </button>
+                </div>
+              </>
             )}
-          </div>
-        </main>
-      )}
+          </main>
+        )}
 
-      {view === 'result' && result && (
-        <main className="stack">
-          <section className={`card result ${result.passed ? 'pass' : 'fail'}`}>
-            <p className="kicker">{result.passed ? 'Bestanden' : 'Nicht bestanden'}</p>
-            <h1>
-              {result.correct} / {result.total}
-            </h1>
-            <p>Zum Bestehen brauchst du 17 richtige Antworten.</p>
-          </section>
-          <ul className="review">
-            {exam.map((q, i) => {
-              const chosen = examAnswers[q.id]
-              const ok = chosen === q.correct
-              return (
-                <li key={q.id} className={ok ? 'ok' : 'bad'}>
-                  <strong>
-                    {i + 1}. {ok ? 'Richtig' : 'Falsch'}
-                  </strong>
-                  <span>{q.question}</span>
-                  {!ok && <em>{q.explanation}</em>}
-                </li>
-              )
-            })}
-          </ul>
-          <div className="actions">
-            <button type="button" className="btn primary" onClick={startExam}>
-              Nochmal prüfen
-            </button>
-            <button type="button" className="btn" onClick={() => setView('home')}>
-              Start
-            </button>
-          </div>
-        </main>
-      )}
+        {view === 'result' && result && (
+          <main className="stack">
+            <section className={`card result ${result.passed ? 'pass' : 'fail'}`}>
+              <p className="kicker">{result.passed ? 'Bestanden' : 'Nicht bestanden'}</p>
+              <h1>
+                {result.correct} / {result.total}
+              </h1>
+              <p>Zum Bestehen brauchst du 17 richtige Antworten.</p>
+            </section>
+            <ul className="review">
+              {exam.map((q, i) => {
+                const chosen = examAnswers[q.id]
+                const ok = chosen === q.correct
+                return (
+                  <li key={q.id} className={ok ? 'ok' : 'bad'}>
+                    <strong>
+                      {i + 1}. {ok ? 'Richtig' : 'Falsch'}
+                      {q.pool === 'bw' ? ' · BW' : ''}
+                    </strong>
+                    <span>{q.question}</span>
+                    <em>{q.explanation}</em>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="bar">
+              <button type="button" className="btn" onClick={() => setView('home')}>
+                Start
+              </button>
+              <button type="button" className="btn primary" onClick={() => prepareExam(examKind)}>
+                Nochmal
+              </button>
+            </div>
+          </main>
+        )}
 
-      {view === 'legal' && (
-        <main className="stack card legal">
-          <h1>Impressum</h1>
-          <p>
-            Hasi Elektronic · Hamdi Güncavdı
-            <br />
-            Grabenstraße 18
-            <br />
-            71665 Vaihingen an der Enz
-            <br />
-            07042 / 16391 · info@hasi-elektronic.de
-          </p>
-          <h2>Datenschutz</h2>
-          <p>
-            Diese Seite speichert Fortschritt nur lokal in deinem Browser
-            (localStorage). Es gibt kein Konto, keine Cookies von Dritten und
-            keine Analyse.
-          </p>
-          <h2>Quelle</h2>
-          <p>{catalog.source}. Dies ist keine amtliche Prüfung.</p>
-        </main>
-      )}
+        {view === 'legal' && (
+          <main className="stack card legal">
+            <h1>Impressum</h1>
+            <p>
+              Hasi Elektronic · Hamdi Güncavdı
+              <br />
+              Grabenstraße 18
+              <br />
+              71665 Vaihingen an der Enz
+              <br />
+              07042 / 16391 · info@hasi-elektronic.de
+            </p>
+            <h2>Datenschutz</h2>
+            <p>
+              Fortschritt bleibt nur in deinem Browser. Kein Konto, keine Tracker.
+            </p>
+            <h2>Quelle</h2>
+            <p>{catalog.source}. Dies ist keine amtliche Prüfung.</p>
+          </main>
+        )}
 
-      <footer>
-        <button type="button" onClick={() => setView('legal')}>
-          Impressum
-        </button>
-        <span>Quelle: BAMF-Katalog 07.05.2025</span>
-      </footer>
+        <footer>
+          <button type="button" onClick={() => setView('legal')}>
+            Impressum
+          </button>
+          <span>Keine amtliche Prüfung · BAMF 07.05.2025</span>
+        </footer>
+      </div>
     </div>
   )
 }
@@ -368,11 +457,12 @@ function QuestionBlock({
   onPick: (index: number) => void
 }) {
   const show = reveal && picked !== null
+  const correct = show && picked === question.correct
   return (
     <section className="card question">
       <h2>{question.question}</h2>
       {question.image && (
-        <img src={question.image} alt="Fragebild" className="qimg" />
+        <img src={question.image} alt="Abbildung zur Frage" className="qimg" />
       )}
       {question.imageNote && <p className="note">{question.imageNote}</p>}
       <div className="choices">
@@ -396,7 +486,35 @@ function QuestionBlock({
           )
         })}
       </div>
-      {show && <p className="why">{question.explanation}</p>}
+      {show && (
+        <div className={`why ${correct ? 'ok' : 'bad'}`}>
+          <strong>{correct ? 'Richtig' : 'Nicht richtig'}</strong>
+          <p>{question.explanation}</p>
+        </div>
+      )}
     </section>
+  )
+}
+
+function IconClock() {
+  return (
+    <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconBook() {
+  return (
+    <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M5 5.5A2.5 2.5 0 0 1 7.5 3H20v16H7.5A2.5 2.5 0 0 0 5 21.5V5.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path d="M5 19.5A2.5 2.5 0 0 1 7.5 17H20" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
   )
 }
