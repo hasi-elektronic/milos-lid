@@ -1,4 +1,4 @@
-import type { Progress } from '../types'
+import type { DailySet, Progress } from '../types'
 
 const KEY = 'milos-lid-v1'
 
@@ -13,6 +13,7 @@ export function loadProgress(): Progress {
     return {
       seen: parsed.seen ?? {},
       exams: Array.isArray(parsed.exams) ? parsed.exams : [],
+      daily: parsed.daily,
     }
   } catch {
     return empty()
@@ -41,7 +42,7 @@ export function markMany(
   for (const item of items) {
     seen[item.id] = { correct: item.correct, at }
   }
-  const next: Progress = { seen, exams: progress.exams }
+  const next: Progress = { seen, exams: progress.exams, daily: progress.daily }
   saveProgress(next)
   return next
 }
@@ -56,9 +57,25 @@ export function recordExam(
       { at: Date.now(), ...result },
       ...progress.exams,
     ].slice(0, 20),
+    daily: progress.daily,
   }
   saveProgress(next)
   return next
+}
+
+export function saveDaily(progress: Progress, daily: DailySet): Progress {
+  const next: Progress = { ...progress, daily }
+  saveProgress(next)
+  return next
+}
+
+export function markDailyAnswered(progress: Progress, id: string): Progress {
+  if (!progress.daily) return progress
+  if (progress.daily.answered.includes(id)) return progress
+  return saveDaily(progress, {
+    ...progress.daily,
+    answered: [...progress.daily.answered, id],
+  })
 }
 
 export function wrongIds(progress: Progress): string[] {

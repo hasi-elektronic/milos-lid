@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import catalogJson from './data/questions.json'
+import { DAILY_SIZE, dailyDone, pickDaily, rngFromString, todayISO } from './lib/daily'
 import { explainQuestion } from './lib/explain'
 import { formatTime, pickExam, scoreExam } from './lib/exam'
 import { splitGlossary } from './lib/glossary'
 import {
   loadProgress,
   markAnswer,
+  markDailyAnswered,
   markMany,
   recordExam,
+  saveDaily,
   wrongIds,
 } from './lib/progress'
 import { examTopicStats, topicStats } from './lib/topics'
@@ -17,7 +20,7 @@ const catalog = catalogJson as Catalog
 const LETTERS = ['A', 'B', 'C', 'D'] as const
 
 type View = 'home' | 'briefing' | 'exam' | 'catalog' | 'result' | 'legal'
-type ExamKind = 'official' | 'learn'
+type ExamKind = 'official' | 'learn' | 'daily'
 type Filter = 'all' | 'bw' | 'general' | 'wrong' | string
 
 function filterQuestions(questions: Question[], filter: Filter, progress: Progress) {
@@ -67,6 +70,8 @@ export default function App() {
     [progress],
   )
   const practicedTopics = topicsOverview.filter((row) => row.seen > 0)
+  const today = todayISO()
+  const todayDone = dailyDone(progress, today)
 
   useEffect(() => {
     if (!isOfficial || result) return
@@ -95,6 +100,29 @@ export default function App() {
     setView('catalog')
   }
 
+  function startDaily() {
+    const date = todayISO()
+    let ids = progress.daily?.date === date ? progress.daily.ids : []
+    if (ids.length !== DAILY_SIZE) {
+      const picked = pickDaily(catalog.questions, progress, rngFromString(date))
+      ids = picked.map((question) => question.id)
+      setProgress(saveDaily(progress, { date, ids, answered: [] }))
+    }
+    const byId = new Map(catalog.questions.map((question) => [question.id, question]))
+    const set = ids.flatMap((id) => {
+      const question = byId.get(id)
+      return question ? [question] : []
+    })
+    setExamKind('daily')
+    setExam(set)
+    setExamIndex(0)
+    setExamAnswers({})
+    setPicked(null)
+    setSecondsLeft(catalog.examMinutes * 60)
+    setResult(null)
+    setView('exam')
+  }
+
   function prepareExam(kind: ExamKind) {
     setExamKind(kind)
     setExam(pickExam(catalog.questions))
@@ -115,18 +143,20 @@ export default function App() {
 
   function chooseExam(index: number) {
     if (!currentExam) return
-    if (examKind === 'learn' && picked !== null) return
+    if ((examKind === 'learn' || examKind === 'daily') && picked !== null) return
     setExamAnswers((current) => ({ ...current, [currentExam.id]: index }))
-    if (examKind === 'learn') {
+    if (examKind === 'learn' || examKind === 'daily') {
       setPicked(index)
-      setProgress(markAnswer(progress, currentExam.id, index === currentExam.correct))
+      let next = markAnswer(progress, currentExam.id, index === currentExam.correct)
+      if (examKind === 'daily') next = markDailyAnswered(next, currentExam.id)
+      setProgress(next)
     }
   }
 
   function goExam(next: number) {
     setExamIndex(next)
     const q = exam[next]
-    setPicked(examKind === 'learn' && q ? (examAnswers[q.id] ?? null) : null)
+    setPicked((examKind === 'learn' || examKind === 'daily') && q ? (examAnswers[q.id] ?? null) : null)
   }
 
   function finishExam(answers: Record<string, number>) {
@@ -188,6 +218,16 @@ export default function App() {
                 <span className="mode-cta">Jetzt lernen</span>
               </button>
             </div>
+            <button type="button" className="mode daily" onClick={startDaily}>
+              <h2>Heute 20 Fragen</h2>
+              <p>
+                Kurzer Satz für jeden Tag. Zuerst Fehler und schwache Themen.
+                {todayDone > 0 ? ` ${todayDone}/${DAILY_SIZE} fertig.` : ''}
+              </p>
+              <span className="mode-cta">
+                {todayDone >= DAILY_SIZE ? 'Heute fertig — nochmal' : 'Tagessatz starten'}
+              </span>
+            </button>
 
             <section className="stats">
               <article>
@@ -291,7 +331,7 @@ export default function App() {
               <p className="meta">
                 Frage {examIndex + 1} von {exam.length}
                 {currentExam.pool === 'bw' ? ' · Land' : ''}
-                {examKind === 'learn' ? ' · mit Erklärung' : ''}
+                {examKind === 'daily' ? ' · heute' : examKind === 'learn' ? ' · mit Erklärung' : ''}
               </p>
               <div className="track" aria-hidden="true">
                 <i style={{ width: `${(answeredCount / exam.length) * 100}%` }} />
@@ -301,9 +341,9 @@ export default function App() {
 
             <QuestionBlock
               question={currentExam}
-              picked={examKind === 'learn' ? picked : (examAnswers[currentExam.id] ?? null)}
-              reveal={examKind === 'learn'}
-              help={examKind === 'learn'}
+              picked={examKind === 'official' ? (examAnswers[currentExam.id] ?? null) : picked}
+              reveal={examKind !== 'official'}
+              help={examKind !== 'official'}
               onPick={chooseExam}
             />
 
@@ -334,7 +374,7 @@ export default function App() {
                   type="button"
                   className="btn primary"
                   onClick={() => goExam(examIndex + 1)}
-                  disabled={examKind === 'learn' && picked === null}
+                  disabled={(examKind === 'learn' || examKind === 'daily') && picked === null}
                 >
                   Nächste Frage
                 </button>
@@ -435,7 +475,13 @@ export default function App() {
               <h1>
                 {result.correct} / {result.total}
               </h1>
-              <p>Zum Bestehen brauchst du 17 richtige Antworten.</p>
+              <p>
+                {examKind === 'official'
+                  ? 'Zum Bestehen brauchst du 17 richtige Antworten.'
+                  : examKind === 'daily'
+                    ? 'Das war dein Tagessatz. Schwache Themen siehst du unten.'
+                    : 'Das war der Übungstest mit Erklärung.'}
+              </p>
             </section>
             <section className="card topics">
               <p className="kicker">Diese Prüfung</p>

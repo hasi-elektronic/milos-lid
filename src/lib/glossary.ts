@@ -165,9 +165,55 @@ export function defineAnswer(text: string, question = ''): string {
       entry.forms.some((form) => form.toLowerCase() === stripped.toLowerCase()),
   )
   if (exact2) return exact2.meaning
+  if (raw.split(/\s+/).length >= 5) return plainGerman(raw)
   const hits = findGlossaryHits(raw)
-  if (hits.length === 0) return ''
-  return hits.sort((a, b) => b.end - b.start - (a.end - a.start))[0]?.meaning ?? ''
+  if (hits.length === 0) return plainGerman(raw)
+  return hits.sort((a, b) => b.end - b.start - (a.end - a.start))[0]?.meaning ?? plainGerman(raw)
+}
+
+const CLAUSE_HINTS: { test: RegExp; meaning: string }[] = [
+  { test: /Gesetze halten/i, meaning: 'alle müssen die Gesetze beachten, auch der Staat' },
+  { test: /beeinflusst|Stimmabgabe gezwungen/i, meaning: 'du wählst frei — niemand darf dich zwingen' },
+  { test: /Geld annehmen.*Kandidat/i, meaning: 'Stimme kaufen oder verkaufen — das ist verboten' },
+  { test: /Gefängnis waren, dürfen wählen/i, meaning: 'nur wer nie im Gefängnis war — das stimmt so nicht' },
+  { test: /wahlberechtigten Personen müssen wählen/i, meaning: 'Wahl ist ein Recht, keine Pflicht' },
+  { test: /Staat muss sich nicht an die Gesetze/i, meaning: 'der Staat hält sich nicht an Gesetze — so ist Deutschland nicht' },
+  { test: /Nur Deutsche müssen die Gesetze/i, meaning: 'nur Deutsche müssen Gesetze beachten — so ist es nicht' },
+  { test: /Gerichte machen die Gesetze/i, meaning: 'Gerichte sprechen Recht, Gesetze macht das Parlament' },
+  { test: /Würde des Menschen ist unantastbar/i, meaning: 'jeder Mensch hat Wert — Satz aus dem Grundgesetz' },
+  { test: /gleich viel Geld/i, meaning: 'steht nicht im Grundgesetz' },
+  { test: /Meinung sagen/i, meaning: 'du darfst deine Meinung sagen' },
+  { test: /vor dem Gesetz gleich/i, meaning: 'das Gesetz gilt für alle gleich' },
+  { test: /Pressefreiheit.*nicht abgeschafft/i, meaning: 'Pressefreiheit ist ein Grundrecht, man kann sie nicht einfach streichen' },
+  { test: /zwei Drittel der Abgeordneten/i, meaning: 'eine sehr große Mehrheit im Bundestag' },
+  { test: /mehr als die Hälfte der Abgeordneten/i, meaning: 'eine einfache Mehrheit im Bundestag' },
+  { test: /5%-Hürde|5 %/i, meaning: 'eine Partei braucht 5 Prozent der Stimmen' },
+  { test: /nicht zu der Regierungspartei/i, meaning: 'das ist die Opposition' },
+  { test: /Fraktion mit den meisten/i, meaning: 'die größte Fraktion im Parlament' },
+  { test: /Passanten.*beschimpfen/i, meaning: 'fremde Menschen auf der Straße beleidigen' },
+  { test: /Meinung im Internet/i, meaning: 'du darfst im Internet deine Meinung sagen' },
+  { test: /Religionsunterricht teilnimmt/i, meaning: 'das Kind geht zum Religionsunterricht' },
+  { test: /Geschichtsunterricht teilnimmt/i, meaning: 'das Kind geht zum Geschichtsunterricht' },
+  { test: /Wahlrecht haben/i, meaning: 'man darf wählen' },
+  { test: /Steuern zahlen/i, meaning: 'man zahlt Geld an den Staat' },
+  { test: /Glaubens- und Gewissensfreiheit/i, meaning: 'du entscheidest selbst, was du glaubst' },
+]
+
+function plainGerman(text: string): string {
+  const compact = text
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/Einwohnerinnen\s*\/\s*Einwohner/gi, 'Menschen')
+    .replace(/Wählerin\s*\/\s*der Wähler/gi, 'du')
+    .replace(/Kandidatin\s*\/\s*einen bestimmten Kandidaten/gi, 'Kandidat')
+    .replace(/Ministerinnen?\s*\/\s*Minister/gi, 'Minister')
+    .trim()
+    .replace(/\.$/, '')
+  const hit = CLAUSE_HINTS.find((row) => row.test.test(compact) || row.test.test(text))
+  if (hit) return hit.meaning
+  if (compact.length <= 72) return compact
+  const first = compact.split(/, (?=dass|weil|wenn|die|der|und)/)[0] ?? compact
+  return first.length >= 20 ? first : compact.slice(0, 90)
 }
 
 function escapeRegExp(value: string) {

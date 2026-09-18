@@ -145,6 +145,11 @@ button:focus-visible, select:focus-visible {
 .mode.official { background: linear-gradient(180deg, #16324f 0%, #0e2236 100%); color: #f7f1e4; border: 0; }
 .mode.official p { color: #d7cbb3; }
 .mode.learn { background: var(--card); }
+.mode.daily {
+  min-height: 0;
+  background: #fff8e8;
+  border-color: var(--gold);
+}
 .mode h2 {
   font-family: "EB Garamond", Georgia, serif;
   font-size: 1.55rem;

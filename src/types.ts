@@ -24,7 +24,14 @@ export type Catalog = {
   questions: Question[]
 }
 
+export type DailySet = {
+  date: string
+  ids: string[]
+  answered: string[]
+}
+
 export type Progress = {
   seen: Record<string, { correct: boolean; at: number }>
   exams: { at: number; correct: number; total: number; passed: boolean }[]
+  daily?: DailySet
 }
