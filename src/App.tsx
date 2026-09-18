@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import catalogJson from './data/questions.json'
+import { explainQuestion } from './lib/explain'
 import { formatTime, pickExam, scoreExam } from './lib/exam'
+import { splitGlossary } from './lib/glossary'
 import {
   loadProgress,
   markAnswer,
@@ -254,6 +256,7 @@ export default function App() {
               question={currentExam}
               picked={examKind === 'learn' ? picked : (examAnswers[currentExam.id] ?? null)}
               reveal={examKind === 'learn'}
+              help={examKind === 'learn'}
               onPick={chooseExam}
             />
 
@@ -346,6 +349,7 @@ export default function App() {
                   question={currentCatalog}
                   picked={picked}
                   reveal
+                  help
                   onPick={chooseLearn}
                 />
                 <div className="bar">
@@ -397,7 +401,7 @@ export default function App() {
                       {q.pool === 'bw' ? ' · BW' : ''}
                     </strong>
                     <span>{q.question}</span>
-                    <em>{q.explanation}</em>
+                    <em>{explainQuestion(q).sentence}</em>
                   </li>
                 )
               })}
@@ -449,18 +453,48 @@ function QuestionBlock({
   question,
   picked,
   reveal,
+  help,
   onPick,
 }: {
   question: Question
   picked: number | null
   reveal: boolean
+  help: boolean
   onPick: (index: number) => void
 }) {
+  const [openTerm, setOpenTerm] = useState<string | null>(null)
   const show = reveal && picked !== null
-  const correct = show && picked === question.correct
+  const isCorrect = show && picked === question.correct
+  const detail = show ? explainQuestion(question) : null
+  const openMeaning = help
+    ? splitGlossary(question.question).find(
+        (part) => part.kind === 'word' && part.term === openTerm,
+      )
+    : undefined
+
   return (
     <section className="card question">
-      <h2>{question.question}</h2>
+      <h2>
+        {help ? (
+          <GlossText
+            text={question.question}
+            openTerm={openTerm}
+            onToggle={setOpenTerm}
+          />
+        ) : (
+          question.question
+        )}
+      </h2>
+      {help && (
+        <p className="hint">Tippe auf ein unterstrichenes Wort für die Bedeutung.</p>
+      )}
+      {openMeaning && openMeaning.kind === 'word' && (
+        <p className="gloss" role="note">
+          <strong>{openMeaning.term}</strong>
+          {' — '}
+          {openMeaning.meaning}
+        </p>
+      )}
       {question.image && (
         <img src={question.image} alt="Abbildung zur Frage" className="qimg" />
       )}
@@ -486,13 +520,53 @@ function QuestionBlock({
           )
         })}
       </div>
-      {show && (
-        <div className={`why ${correct ? 'ok' : 'bad'}`}>
-          <strong>{correct ? 'Richtig' : 'Nicht richtig'}</strong>
-          <p>{question.explanation}</p>
+      {detail && (
+        <div className={`why ${isCorrect ? 'ok' : 'bad'}`}>
+          <strong>{isCorrect ? 'Richtig' : 'Nicht richtig'}</strong>
+          <p>{detail.headline}</p>
+          <p>{detail.sentence}</p>
+          <p>{detail.note}</p>
+          <p className="why-label">Warum die anderen Antworten falsch sind</p>
+          <ul className="why-list">
+            {detail.others.map((item) => (
+              <li key={item.text}>
+                <span>{item.text}</span>
+                {item.why}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </section>
+  )
+}
+
+function GlossText({
+  text,
+  openTerm,
+  onToggle,
+}: {
+  text: string
+  openTerm: string | null
+  onToggle: (term: string | null) => void
+}) {
+  return (
+    <>
+      {splitGlossary(text).map((part, index) => {
+        if (part.kind === 'text') return <span key={index}>{part.value}</span>
+        const active = openTerm === part.term
+        return (
+          <button
+            key={`${part.term}-${index}`}
+            type="button"
+            className={active ? 'word on' : 'word'}
+            onClick={() => onToggle(active ? null : part.term)}
+          >
+            {part.value}
+          </button>
+        )
+      })}
+    </>
   )
 }
 

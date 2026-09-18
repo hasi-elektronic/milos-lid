@@ -100,7 +100,28 @@ button:focus-visible, select:focus-visible {
   color: var(--gold);
   font-weight: 700;
 }
-.lead, .last, .meta, .note { color: var(--muted); margin: 0; }
+.lead, .last, .meta, .note, .hint { color: var(--muted); margin: 0; }
+.hint { font-size: 0.85rem; margin: -8px 0 12px; }
+.word {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px dotted var(--navy);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  min-height: auto;
+  border-radius: 0;
+}
+.word.on { background: #f7e7b8; border-bottom-style: solid; }
+.gloss {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #eef3f8;
+  color: var(--navy);
+}
 .meta.right { text-align: right; }
 
 .modes {
@@ -256,7 +277,25 @@ button:focus-visible, select:focus-visible {
 .why.ok { background: #eef7f1; }
 .why.bad { background: #fdeeee; }
 .why strong { display: block; margin-bottom: 4px; }
-.why p { margin: 0; }
+.why p { margin: 0 0 8px; }
+.why-label { font-weight: 700; margin: 10px 0 6px !important; }
+.why-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.why-list li {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.65);
+}
+.why-list span {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
 
 .navmap {
   display: grid;
