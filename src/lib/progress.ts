@@ -28,13 +28,20 @@ export function markAnswer(
   id: string,
   correct: boolean,
 ): Progress {
-  const next: Progress = {
-    seen: {
-      ...progress.seen,
-      [id]: { correct, at: Date.now() },
-    },
-    exams: progress.exams,
+  return markMany(progress, [{ id, correct }])
+}
+
+export function markMany(
+  progress: Progress,
+  items: { id: string; correct: boolean }[],
+): Progress {
+  if (items.length === 0) return progress
+  const seen = { ...progress.seen }
+  const at = Date.now()
+  for (const item of items) {
+    seen[item.id] = { correct: item.correct, at }
   }
+  const next: Progress = { seen, exams: progress.exams }
   saveProgress(next)
   return next
 }

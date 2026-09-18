@@ -6,9 +6,11 @@ import { splitGlossary } from './lib/glossary'
 import {
   loadProgress,
   markAnswer,
+  markMany,
   recordExam,
   wrongIds,
 } from './lib/progress'
+import { examTopicStats, topicStats } from './lib/topics'
 import type { Catalog, Progress, Question } from './types'
 
 const catalog = catalogJson as Catalog
@@ -60,6 +62,11 @@ export default function App() {
   const lastExam = progress.exams[0]
   const answeredCount = Object.keys(examAnswers).length
   const isOfficial = examKind === 'official' && view === 'exam'
+  const topicsOverview = useMemo(
+    () => topicStats(catalog.questions, progress),
+    [progress],
+  )
+  const practicedTopics = topicsOverview.filter((row) => row.seen > 0)
 
   useEffect(() => {
     if (!isOfficial || result) return
@@ -124,8 +131,14 @@ export default function App() {
 
   function finishExam(answers: Record<string, number>) {
     const scored = scoreExam(exam, answers, catalog.passScore)
+    const graded = exam.flatMap((question) => {
+      const chosen = answers[question.id]
+      if (chosen === undefined) return []
+      return [{ id: question.id, correct: chosen === question.correct }]
+    })
+    const withAnswers = markMany(progress, graded)
     setResult(scored)
-    setProgress(recordExam(progress, scored))
+    setProgress(recordExam(withAnswers, scored))
     setView('result')
   }
 
@@ -197,6 +210,40 @@ export default function App() {
                 {lastExam.passed ? 'bestanden' : 'nicht bestanden'}
               </p>
             )}
+
+            <section className="card topics">
+              <p className="kicker">Themen</p>
+              <h2 className="topics-title">Wo sind Lücken?</h2>
+              {practicedTopics.length === 0 ? (
+                <p className="note">
+                  Übe ein paar Fragen. Dann siehst du hier, welche Themen noch schwach sind.
+                </p>
+              ) : (
+                <p className="note">Tippe ein Thema — zuerst die schwächsten.</p>
+              )}
+              <ul className="topic-list">
+                {topicsOverview.map((row) => {
+                  const percent = row.rate === null ? 0 : Math.round(row.rate * 100)
+                  const level =
+                    row.rate === null ? 'none' : row.rate < 0.5 ? 'bad' : row.rate < 0.8 ? 'mid' : 'good'
+                  return (
+                    <li key={row.topic}>
+                      <button type="button" className="topic-row" onClick={() => openCatalog(row.topic)}>
+                        <span className="topic-name">{row.topic}</span>
+                        <span className="topic-meta">
+                          {row.seen === 0
+                            ? `0/${row.total}`
+                            : `${percent}% · ${row.correct}/${row.seen}`}
+                        </span>
+                        <span className={`topic-bar ${level}`}>
+                          <i style={{ width: `${percent}%` }} />
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
 
             <div className="secondary">
               <button type="button" className="chip" onClick={() => openCatalog('all')}>
@@ -389,6 +436,29 @@ export default function App() {
                 {result.correct} / {result.total}
               </h1>
               <p>Zum Bestehen brauchst du 17 richtige Antworten.</p>
+            </section>
+            <section className="card topics">
+              <p className="kicker">Diese Prüfung</p>
+              <h2 className="topics-title">Themen</h2>
+              <ul className="topic-list">
+                {examTopicStats(exam, examAnswers).map((row) => {
+                  const percent = row.rate === null ? 0 : Math.round(row.rate * 100)
+                  const level = row.rate === null ? 'none' : row.rate < 0.5 ? 'bad' : row.rate < 0.8 ? 'mid' : 'good'
+                  return (
+                    <li key={row.topic}>
+                      <button type="button" className="topic-row" onClick={() => openCatalog(row.topic)}>
+                        <span className="topic-name">{row.topic}</span>
+                        <span className="topic-meta">
+                          {percent}% · {row.correct}/{row.seen}
+                        </span>
+                        <span className={`topic-bar ${level}`}>
+                          <i style={{ width: `${percent}%` }} />
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             </section>
             <ul className="review">
               {exam.map((q, i) => {

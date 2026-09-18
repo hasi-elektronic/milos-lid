@@ -191,6 +191,41 @@ button:focus-visible, select:focus-visible {
 .stats strong { display: block; font-size: 1.25rem; color: var(--navy); }
 .stats span { color: var(--muted); font-size: 0.78rem; }
 
+.topics-title {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 1.45rem;
+  margin: 0 0 8px;
+  color: var(--navy-2);
+}
+.topic-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.topic-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name meta" "bar bar";
+  gap: 4px 10px;
+  text-align: left;
+  padding: 12px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.topic-name { grid-area: name; font-weight: 700; }
+.topic-meta { grid-area: meta; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.topic-bar {
+  grid-area: bar;
+  height: 6px;
+  border-radius: 99px;
+  background: #e6dcc8;
+  overflow: hidden;
+}
+.topic-bar i { display: block; height: 100%; background: var(--navy); }
+.topic-bar.bad i { background: var(--bad); }
+.topic-bar.mid i { background: var(--gold); }
+.topic-bar.good i { background: var(--good); }
+.topic-bar.none i { width: 0; }
+
 .secondary, .bar { display: flex; gap: 10px; flex-wrap: wrap; }
 .bar { justify-content: space-between; }
 .chip, .btn {
