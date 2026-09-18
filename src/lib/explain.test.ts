@@ -16,6 +16,14 @@ describe('glossary', () => {
     expect(words.some((w) => w.kind === 'word' && w.term === 'Europäische Union')).toBe(true)
   })
 
+  it('explains Easter distractors by festival, without echoing the option', () => {
+    expect(defineAnswer('Eier bemalen')).toMatch(/Ostern/i)
+    expect(defineAnswer('einen Tannenbaum schmücken')).toMatch(/Weihnachten/i)
+    expect(defineAnswer('Kürbisse vor die Tür stellen')).toMatch(/Halloween/i)
+    expect(defineAnswer('Raketen in die Luft schießen')).toMatch(/Silvester|Neujahr/i)
+    expect(defineAnswer('Eier bemalen').toLowerCase()).not.toBe('eier bemalen')
+  })
+
   it('defines Fraktion like a dictionary', () => {
     expect(defineAnswer('Fraktion')).toMatch(/Abgeordneten einer Partei/i)
     expect(defineAnswer('Verband')).toMatch(/Vereinen|Interessen/i)

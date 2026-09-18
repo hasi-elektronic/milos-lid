@@ -151,6 +151,8 @@ export function defineAnswer(text: string, question = ''): string {
     if (/Jahr/i.test(question)) return `${raw} Jahre`
     return `die Zahl ${raw}`
   }
+  const hinted = CLAUSE_HINTS.find((row) => row.test.test(raw))
+  if (hinted) return hinted.meaning
   const lower = raw.toLowerCase()
   const exact = GLOSSARY.find(
     (entry) =>
@@ -197,6 +199,27 @@ const CLAUSE_HINTS: { test: RegExp; meaning: string }[] = [
   { test: /Wahlrecht haben/i, meaning: 'man darf wählen' },
   { test: /Steuern zahlen/i, meaning: 'man zahlt Geld an den Staat' },
   { test: /Glaubens- und Gewissensfreiheit/i, meaning: 'du entscheidest selbst, was du glaubst' },
+  { test: /Eier bemalen|bunte Eier verstecken/i, meaning: 'Brauch zu Ostern' },
+  { test: /Tannenbaum schmücken/i, meaning: 'Brauch zu Weihnachten' },
+  { test: /Kürbisse vor die Tür/i, meaning: 'Halloween — kein deutscher Feiertag' },
+  { test: /Raketen in die Luft/i, meaning: 'Brauch zu Silvester (Neujahr)' },
+  { test: /Masken und Kostüme|bunte Kostüme/i, meaning: 'Karneval / Fasching, z. B. Rosenmontag' },
+  { test: /am Rosenmontag/i, meaning: 'Karneval, Tag mit Umzug und Kostümen' },
+  { test: /am Maifeiertag/i, meaning: '1. Mai, Tag der Arbeit' },
+  { test: /beim Oktoberfest/i, meaning: 'Volksfest in Bayern, kein gesetzlicher Feiertag' },
+  { test: /an Pfingsten/i, meaning: 'christlicher Feiertag, 50 Tage nach Ostern' },
+  { test: /christlicher Feiertag/i, meaning: 'ein Fest der Kirche, frei von der Arbeit' },
+  { test: /deutscher Gedenktag/i, meaning: 'Tag, an den man ein Ereignis in Deutschland erinnert' },
+  { test: /internationaler Trauertag/i, meaning: 'ein Trauertag für viele Länder — Pfingsten ist das nicht' },
+  { test: /bayerischer Brauch/i, meaning: 'etwas Typisches nur in Bayern' },
+  { test: /Adventszeit/i, meaning: 'die letzten vier Wochen vor Weihnachten' },
+  { test: /Buß- und Bettag/i, meaning: 'evangelischer Gedenktag im November, nicht vor Weihnachten' },
+  { test: /Erntedankfest/i, meaning: 'Fest im Herbst, Dank für die Ernte' },
+  { test: /Allerheiligen/i, meaning: 'katholischer Feiertag am 1. November' },
+  { test: /Sozialversicherung/i, meaning: 'Krankenkasse, Rente, Arbeitslosigkeit — vom Gehalt' },
+  { test: /Sozialhilfe/i, meaning: 'Geld vom Staat, wenn du zu wenig zum Leben hast' },
+  { test: /Kindergeld/i, meaning: 'Geld vom Staat für Kinder, nicht automatisch vom Gehalt' },
+  { test: /Wohngeld/i, meaning: 'Hilfe für die Miete, musst du beantragen' },
 ]
 
 function plainGerman(text: string): string {
@@ -211,9 +234,17 @@ function plainGerman(text: string): string {
     .replace(/\.$/, '')
   const hit = CLAUSE_HINTS.find((row) => row.test.test(compact) || row.test.test(text))
   if (hit) return hit.meaning
-  if (compact.length <= 72) return compact
+  const same = compact.replace(/[. ]/g, '').toLowerCase()
+  if (same.length <= 72) {
+    const fromWords = findGlossaryHits(compact)
+      .sort((a, b) => b.end - b.start - (a.end - a.start))[0]?.meaning
+    if (fromWords && fromWords.replace(/[. ]/g, '').toLowerCase() !== same) return fromWords
+  }
+  if (compact.length <= 72) return `gehört zu einem anderen Fest oder Thema`
   const first = compact.split(/, (?=dass|weil|wenn|die|der|und)/)[0] ?? compact
-  return first.length >= 20 ? first : compact.slice(0, 90)
+  const cut = first.length >= 20 ? first : compact.slice(0, 90)
+  if (cut.replace(/[. ]/g, '').toLowerCase() === same) return `gehört zu einem anderen Fest oder Thema`
+  return cut
 }
 
 function escapeRegExp(value: string) {
