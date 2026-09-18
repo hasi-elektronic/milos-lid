@@ -13,6 +13,7 @@ import {
   saveDaily,
   wrongIds,
 } from './lib/progress'
+import { downloadDailyReminder } from './lib/reminder'
 import { examTopicStats, topicStats } from './lib/topics'
 import type { Catalog, Progress, Question } from './types'
 
@@ -168,7 +169,9 @@ export default function App() {
     })
     const withAnswers = markMany(progress, graded)
     setResult(scored)
-    setProgress(recordExam(withAnswers, scored))
+    setProgress(
+      examKind === 'official' ? recordExam(withAnswers, scored) : withAnswers,
+    )
     setView('result')
   }
 
@@ -244,12 +247,14 @@ export default function App() {
               </article>
             </section>
 
-            {lastExam && (
+            {lastExam && lastExam.total === 33 && (
               <p className="last">
                 Letzte Prüfung: {lastExam.correct}/{lastExam.total}{' '}
                 {lastExam.passed ? 'bestanden' : 'nicht bestanden'}
               </p>
             )}
+
+            <ExamHistory exams={progress.exams} />
 
             <section className="card topics">
               <p className="kicker">Themen</p>
@@ -297,6 +302,9 @@ export default function App() {
                   Fehler wiederholen
                 </button>
               )}
+              <button type="button" className="chip" onClick={downloadDailyReminder}>
+                Täglich 8:00 erinnern
+              </button>
             </div>
           </main>
         )}
@@ -680,6 +688,36 @@ function GlossText({
         )
       })}
     </>
+  )
+}
+
+function ExamHistory({
+  exams,
+}: {
+  exams: Progress['exams']
+}) {
+  const rows = exams.filter((exam) => exam.total === 33).slice(0, 10)
+  if (rows.length === 0) return null
+  const chronological = [...rows].reverse()
+  return (
+    <section className="card history">
+      <p className="kicker">Prüfungen</p>
+      <h2 className="topics-title">Letzte Ergebnisse</h2>
+      <div className="hist">
+        <span className="hist-line" style={{ bottom: `${(17 / 33) * 100}%` }} />
+        {chronological.map((exam) => (
+          <div key={exam.at} className="hist-col">
+            <span
+              className={exam.passed ? 'hist-bar pass' : 'hist-bar fail'}
+              style={{ height: `${(exam.correct / 33) * 100}%` }}
+              title={`${exam.correct}/33`}
+            />
+            <small>{exam.correct}</small>
+          </div>
+        ))}
+      </div>
+      <p className="note">Die Linie ist 17 — so viel brauchst du zum Bestehen.</p>
+    </section>
   )
 }
 

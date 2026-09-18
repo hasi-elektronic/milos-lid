@@ -231,6 +231,42 @@ button:focus-visible, select:focus-visible {
 .topic-bar.good i { background: var(--good); }
 .topic-bar.none i { width: 0; }
 
+.hist {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+  margin: 16px 0 8px;
+  padding: 0 4px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.hist-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--gold);
+  pointer-events: none;
+}
+.hist-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.hist-bar {
+  width: 100%;
+  max-width: 28px;
+  border-radius: 6px 6px 2px 2px;
+  min-height: 4px;
+}
+.hist-bar.pass { background: var(--good); }
+.hist-bar.fail { background: var(--bad); }
+.hist-col small { color: var(--muted); font-variant-numeric: tabular-nums; }
+
 .secondary, .bar { display: flex; gap: 10px; flex-wrap: wrap; }
 .bar { justify-content: space-between; }
 .chip, .btn {

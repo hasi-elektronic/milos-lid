@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'img/*.png'],
+      includeAssets: ['favicon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'img/*.png'],
       manifest: {
         name: 'LiD für Milos',
         short_name: 'LiD Milos',
@@ -17,7 +17,10 @@ export default defineConfig({
         display: 'standalone',
         background_color: '#f4efe4',
         theme_color: '#16324f',
-        icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,json,ico}'],
