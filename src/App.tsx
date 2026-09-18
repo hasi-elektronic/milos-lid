@@ -401,7 +401,7 @@ export default function App() {
                       {q.pool === 'bw' ? ' · BW' : ''}
                     </strong>
                     <span>{q.question}</span>
-                    <em>{explainQuestion(q).sentence}</em>
+                    <em>{explainQuestion(q).entries.find((e) => e.correct)?.meaning || q.explanation}</em>
                   </li>
                 )
               })}
@@ -523,15 +523,12 @@ function QuestionBlock({
       {detail && (
         <div className={`why ${isCorrect ? 'ok' : 'bad'}`}>
           <strong>{isCorrect ? 'Richtig' : 'Nicht richtig'}</strong>
-          <p>{detail.headline}</p>
-          <p>{detail.sentence}</p>
-          <p>{detail.note}</p>
-          <p className="why-label">Warum die anderen Antworten falsch sind</p>
-          <ul className="why-list">
-            {detail.others.map((item) => (
-              <li key={item.text}>
-                <span>{item.text}</span>
-                {item.why}
+          <p className="why-label">Was die Wörter bedeuten</p>
+          <ul className="dict">
+            {detail.entries.map((item) => (
+              <li key={item.text} className={item.correct ? 'hit' : undefined}>
+                <strong>{item.text}</strong>
+                {item.meaning ? ` = ${item.meaning}` : ''}
               </li>
             ))}
           </ul>

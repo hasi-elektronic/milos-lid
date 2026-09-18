@@ -108,7 +108,67 @@ export const GLOSSARY: GlossEntry[] = [
   { term: 'Widerspruch', meaning: 'du sagst offiziell: dieser Bescheid ist falsch', forms: ['Widerspruch', 'Einspruch'] },
   { term: 'Bescheid', meaning: 'schriftliche Entscheidung vom Amt', forms: ['Bescheid'] },
   { term: 'Reklamation', meaning: 'du meldest, dass eine Ware kaputt oder falsch ist', forms: ['reklamieren'] },
+  { term: 'Fraktion', meaning: 'die Abgeordneten einer Partei, die im Parlament zusammenarbeiten', forms: ['Fraktion'] },
+  { term: 'Verband', meaning: 'Zusammenschluss von Vereinen oder Interessen, kein Parlament', forms: ['Verband'] },
+  { term: 'Ältestenrat', meaning: 'erfahrene Abgeordnete, die den Ablauf im Parlament klären', forms: ['Ältestenrat'] },
+  { term: 'Opposition', meaning: 'Parteien im Parlament, die nicht in der Regierung sind', forms: ['Opposition'] },
+  { term: 'Legislative', meaning: 'die gesetzgebende Gewalt, das Parlament', forms: ['Legislative'] },
+  { term: 'Judikative', meaning: 'die richterliche Gewalt, die Gerichte', forms: ['Judikative'] },
+  { term: 'Exekutive', meaning: 'die ausführende Gewalt, die Regierung', forms: ['Exekutive'] },
+  { term: 'Presse', meaning: 'Zeitungen, Radio, Fernsehen, Online-Medien', forms: ['Presse'] },
+  { term: 'Pressezensur', meaning: 'der Staat verbietet oder kontrolliert, was Medien schreiben', forms: ['Pressezensur'] },
+  { term: 'Planwirtschaft', meaning: 'der Staat plant die Wirtschaft, nicht der Markt', forms: ['Planwirtschaft'] },
+  { term: 'Marktwirtschaft', meaning: 'Angebot und Nachfrage bestimmen Preise', forms: ['Marktwirtschaft'] },
+  { term: 'Ordnungsamt', meaning: 'Amt in der Stadt für Ordnung, z. B. Lärm oder Gewerbe', forms: ['Ordnungsamt'] },
+  { term: 'Faustrecht', meaning: 'Recht des Stärkeren, verboten in Deutschland', forms: ['Faustrecht'] },
+  { term: 'Selbstjustiz', meaning: 'selbst strafen statt zum Gericht zu gehen, verboten', forms: ['Selbstjustiz'] },
+  { term: 'Waffenbesitz', meaning: 'Waffen haben — in Deutschland kein Grundrecht', forms: ['Waffenbesitz'] },
+  { term: 'Volksgesetz', meaning: 'kein Name der deutschen Verfassung', forms: ['Volksgesetz'] },
+  { term: 'Asyl', meaning: 'Schutz in Deutschland, wenn du in deinem Land Gefahr hast', forms: ['Asyl'] },
+  { term: 'Folter', meaning: 'Schmerz zufügen, um jemanden zu zwingen — verboten', forms: ['Folter'] },
+  { term: 'Todesstrafe', meaning: 'der Staat tötet als Strafe — in Deutschland verboten', forms: ['Todesstrafe'] },
+  { term: 'Prügelstrafe', meaning: 'Schläge als Strafe — in Deutschland verboten', forms: ['Prügelstrafe'] },
+  { term: 'Geldstrafe', meaning: 'Strafe mit Geld, z. B. bei manchen Delikten', forms: ['Geldstrafe'] },
+  { term: 'Militärdienst', meaning: 'Dienst bei der Bundeswehr', forms: ['Militärdienst'] },
+  { term: 'Zwangsarbeit', meaning: 'Arbeiten müssen gegen den Willen — verboten', forms: ['Zwangsarbeit'] },
+  { term: 'Sozialversicherung', meaning: 'Kranken-, Renten-, Arbeitslosen- und Pflegeversicherung', forms: ['Sozialversicherung'] },
+  { term: 'Einwohnermeldeamt', meaning: 'Amt, wo du dich anmeldest, wenn du umziehst', forms: ['Einwohnermeldeamt'] },
+  { term: 'Warschauer Pakt', meaning: 'altes Militärbündnis der Sowjetunion, nicht mehr', forms: ['Warschauer Pakt'] },
+  { term: 'Hauptschule', meaning: 'eine Schulform, oft bis Klasse 9', forms: ['Hauptschule'] },
+  { term: 'Hochschule', meaning: 'Universität oder Fachhochschule nach dem Abitur', forms: ['Hochschule'] },
+  { term: 'Regierung', meaning: 'führt den Staat, macht aber nicht allein die Gesetze', forms: ['Regierung'] },
+  { term: 'Volk', meaning: 'die Menschen im Staat, in der Demokratie die Quelle der Macht', forms: ['Volk'] },
+  { term: 'Einheit', meaning: 'Zusammengehörigkeit, z. B. deutsche Einheit 1990', forms: ['Einheit'] },
+  { term: 'Direktive', meaning: 'Anweisung, oft aus der EU; nicht dasselbe wie ein deutsches Gesetz', forms: ['Direktive'] },
 ]
+
+export function defineAnswer(text: string, question = ''): string {
+  const raw = text.trim().replace(/\.$/, '')
+  if (!raw) return ''
+  if (/^Bild\s+\d$/i.test(raw)) return 'siehe das Bild zur Frage'
+  if (/^\d+$/.test(raw)) {
+    if (/Alter|alt/i.test(question)) return `${raw} Jahre alt`
+    if (/Jahr/i.test(question)) return `${raw} Jahre`
+    return `die Zahl ${raw}`
+  }
+  const lower = raw.toLowerCase()
+  const exact = GLOSSARY.find(
+    (entry) =>
+      entry.term.toLowerCase() === lower ||
+      entry.forms.some((form) => form.toLowerCase() === lower),
+  )
+  if (exact) return exact.meaning
+  const stripped = raw.replace(/^(die|der|das|eine|ein|einer|einem|eines)\s+/i, '')
+  const exact2 = GLOSSARY.find(
+    (entry) =>
+      entry.term.toLowerCase() === stripped.toLowerCase() ||
+      entry.forms.some((form) => form.toLowerCase() === stripped.toLowerCase()),
+  )
+  if (exact2) return exact2.meaning
+  const hits = findGlossaryHits(raw)
+  if (hits.length === 0) return ''
+  return hits.sort((a, b) => b.end - b.start - (a.end - a.start))[0]?.meaning ?? ''
+}
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

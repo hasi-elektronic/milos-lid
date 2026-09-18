@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import catalog from '../data/questions.json'
 import { explainQuestion } from './explain'
-import { findGlossaryHits, splitGlossary } from './glossary'
+import { defineAnswer, findGlossaryHits, splitGlossary } from './glossary'
 import type { Question } from '../types'
 
 describe('glossary', () => {
@@ -15,21 +15,31 @@ describe('glossary', () => {
     const words = parts.filter((p) => p.kind === 'word')
     expect(words.some((w) => w.kind === 'word' && w.term === 'Europäische Union')).toBe(true)
   })
+
+  it('defines Fraktion like a dictionary', () => {
+    expect(defineAnswer('Fraktion')).toMatch(/Abgeordneten einer Partei/i)
+    expect(defineAnswer('Verband')).toMatch(/Vereinen|Interessen/i)
+    expect(defineAnswer('Opposition')).toMatch(/nicht in der Regierung/i)
+  })
 })
 
 describe('explain', () => {
-  it('completes a weil-stem and lists three wrong answers', () => {
-    const q = catalog.questions.find((item) => item.id === 'g-001') as Question
+  it('lists all four answers as dictionary entries', () => {
+    const q = catalog.questions.find((item) =>
+      item.answers.includes('Fraktion'),
+    ) as Question
     const detail = explainQuestion(q)
-    expect(detail.sentence).toContain('Meinungsfreiheit')
-    expect(detail.others).toHaveLength(3)
-    expect(detail.note.length).toBeGreaterThan(20)
+    expect(detail.entries).toHaveLength(4)
+    const fraktion = detail.entries.find((e) => e.text === 'Fraktion')
+    expect(fraktion?.correct).toBe(true)
+    expect(fraktion?.meaning).toMatch(/Parlament/i)
+    expect(detail.entries.every((e) => !e.meaning.includes('passt nicht'))).toBe(true)
   })
 
-  it('explains a wrong number for BW Landtag', () => {
+  it('defines BW Landtag years as years, not as "wrong"', () => {
     const q = catalog.questions.find((item) => item.id === 'bw-03') as Question
     const detail = explainQuestion(q)
-    expect(detail.sentence).toContain('5')
-    expect(detail.others.some((o) => o.why.includes('falsche Zahl'))).toBe(true)
+    expect(detail.entries.find((e) => e.correct)?.meaning).toBe('5 Jahre')
+    expect(detail.entries.find((e) => e.text === '3')?.meaning).toBe('3 Jahre')
   })
 })
